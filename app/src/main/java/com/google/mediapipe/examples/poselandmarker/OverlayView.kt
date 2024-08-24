@@ -1,18 +1,4 @@
-/*
- * Copyright 2023 The TensorFlow Authors. All Rights Reserved.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *       http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+
 package com.google.mediapipe.examples.poselandmarker
 
 import android.content.Context
@@ -27,6 +13,9 @@ import com.google.mediapipe.tasks.vision.poselandmarker.PoseLandmarker
 import com.google.mediapipe.tasks.vision.poselandmarker.PoseLandmarkerResult
 import kotlin.math.max
 import kotlin.math.min
+import kotlin.math.atan2
+import kotlin.math.PI
+import kotlin.math.absoluteValue
 
 class OverlayView(context: Context?, attrs: AttributeSet?) :
     View(context, attrs) {
@@ -34,10 +23,12 @@ class OverlayView(context: Context?, attrs: AttributeSet?) :
     private var results: PoseLandmarkerResult? = null
     private var pointPaint = Paint()
     private var linePaint = Paint()
-
+    private var textPaint = Paint()
     private var scaleFactor: Float = 1f
     private var imageWidth: Int = 1
     private var imageHeight: Int = 1
+
+
 
     init {
         initPaints()
@@ -60,7 +51,35 @@ class OverlayView(context: Context?, attrs: AttributeSet?) :
         pointPaint.color = Color.YELLOW
         pointPaint.strokeWidth = LANDMARK_STROKE_WIDTH
         pointPaint.style = Paint.Style.FILL
+
+        textPaint.color = Color.WHITE
+        textPaint.textSize = 36f
+        textPaint.textAlign = Paint.Align.CENTER
     }
+
+    private fun calculateAngle(firstPoint: com.google.mediapipe.tasks.components.containers.NormalizedLandmark,
+                               midPoint: com.google.mediapipe.tasks.components.containers.NormalizedLandmark,
+                               lastPoint: com.google.mediapipe.tasks.components.containers.NormalizedLandmark): Double {
+        val angle = Math.toDegrees(
+            (atan2(lastPoint.y() - midPoint.y(), lastPoint.x() - midPoint.x()) -
+                    atan2(firstPoint.y() - midPoint.y(), firstPoint.x() - midPoint.x())).toDouble()
+        ).absoluteValue
+
+        return if (angle > 180) 360 - angle else angle
+    }
+
+    object PoseLandmark {
+
+        const val LEFT_SHOULDER = 11
+        const val LEFT_ELBOW = 13
+        const val LEFT_WRIST = 15
+
+        const val RIGHT_SHOULDER = 12
+        const val RIGHT_ELBOW = 14
+        const val RIGHT_WRIST = 16
+    }
+
+    
 
     override fun draw(canvas: Canvas) {
         super.draw(canvas)
@@ -82,6 +101,44 @@ class OverlayView(context: Context?, attrs: AttributeSet?) :
                         poseLandmarkerResult.landmarks().get(0).get(it.end()).y() * imageHeight * scaleFactor,
                         linePaint)
                 }
+
+
+                val leftElbow = landmark[PoseLandmark.LEFT_ELBOW]
+                val leftShoulder = landmark[PoseLandmark.LEFT_SHOULDER]
+                val leftWrist = landmark[PoseLandmark.LEFT_WRIST]
+
+                val rightElbow = landmark[PoseLandmark.RIGHT_ELBOW]
+                val rightShoulder = landmark[PoseLandmark.RIGHT_SHOULDER]
+                val rightWrist = landmark[PoseLandmark.RIGHT_WRIST]
+
+
+                // Calculate and draw angles
+//                val leftElbow = landmark[PoseLandmarker.LEFT_ELBOW]
+//                val leftShoulder = landmark[PoseLandmarker.LEFT_SHOULDER]
+//                val leftWrist = landmark[PoseLandmarker.LEFT_WRIST]
+//
+//                val rightElbow = landmark[PoseLandmarker.RIGHT_ELBOW]
+//                val rightShoulder = landmark[PoseLandmarker.RIGHT_SHOULDER]
+//                val rightWrist = landmark[PoseLandmarker.RIGHT_WRIST]
+
+                val leftElbowAngle = calculateAngle(leftShoulder, leftElbow, leftWrist)
+                val rightElbowAngle = calculateAngle(rightShoulder, rightElbow, rightWrist)
+
+                // Draw left elbow angle
+                canvas.drawText(
+                    String.format("%.0f°", leftElbowAngle),
+                    leftElbow.x() * imageWidth * scaleFactor,
+                    leftElbow.y() * imageHeight * scaleFactor,
+                    textPaint
+                )
+
+                // Draw right elbow angle
+                canvas.drawText(
+                    String.format("%.0f°", rightElbowAngle),
+                    rightElbow.x() * imageWidth * scaleFactor,
+                    rightElbow.y() * imageHeight * scaleFactor,
+                    textPaint
+                )
             }
         }
     }
